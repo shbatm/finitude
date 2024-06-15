@@ -127,6 +127,8 @@ class HvacMonitor:
                             stype = 'discharge'
                         elif s['Type'] == 0x4a:
                             stype = 'superheat'
+                        elif s['Type'] == 0x4b:
+                            stype = 'discharge'
                         else:
                             stype = str(s['Type'])
                         temp = s['TempTimes16']
@@ -301,17 +303,15 @@ class HvacMonitor:
                     self.open()
                 frame = frames.ParsedFrame(self.bus.read())
                 (name, rest) = self.process_frame(frame)
-                if self.store_frames:
-                    HvacMonitor.FRAME_COUNT.labels(
+                HvacMonitor.FRAME_COUNT.labels(
                         name=self.name,
                         source=frames.ParsedFrame.get_printable_address(frame.source),
                         dest=frames.ParsedFrame.get_printable_address(frame.dest),
                         func=frame.get_function_name(),
                         register=name or frame.get_register() or 'unknown',
-                    ).inc()
+                ).inc()
+                if self.store_frames:
                     self.store_frame(frame, name, rest)
-                else:
-                    HvacMonitor.FRAME_COUNT.labels(name=self.name).inc()
                 if frame.func in (frames.Function.ACK06,
                                   frames.Function.ACK02,
                                   frames.Function.NACK):
@@ -383,7 +383,7 @@ def main(args, env=None):
     if listeners:
         config['listeners'] = listeners
     if config.get('debug_logging'):
-        logging.setLevel(logging.DEBUG)
+        LOGGER.setLevel(logging.DEBUG)
         LOGGER.debug('debug logging is on')
     f = Finitude(config)
     f.start_metrics_server()
