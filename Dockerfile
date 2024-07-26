@@ -1,11 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# by default, we build for Raspberry Pi (arm32v7)
-
-# FROM python:3.8-slim-buster
-FROM arm32v7/python:3.8-slim-buster
-
-MAINTAINER dulitz@gmail.com
+FROM python:3.12-slim
 
 # we expect /home to be pristine in the running container
 WORKDIR /home
@@ -14,16 +9,16 @@ RUN apt-get update
 RUN apt-get install -y git
 
 # invalidate the Docker cache from this point when requirements.txt changes
-ADD https://raw.githubusercontent.com/dulitz/finitude/master/requirements.txt requirements.txt
+ADD https://raw.githubusercontent.com/shbatm/finitude/master/requirements.txt requirements.txt
 
 RUN python3 -m venv pyenv
 
 RUN /home/pyenv/bin/pip install -r requirements.txt
 
 # invalidate the Docker cache from this point when git changes
-ADD https://api.github.com/repos/dulitz/finitude/git/refs/heads/master version.json
+ADD https://api.github.com/repos/shbatm/finitude/git/refs/heads/master version.json
 
-RUN git clone https://github.com/dulitz/finitude
+RUN git clone https://github.com/shbatm/finitude
 
 # we expect /var/lib/finitude might be a mount point,
 # so we read our config from there
