@@ -47,6 +47,9 @@ class HvacMonitor:
     TEMPSENSORS = prometheus_client.Gauge('finitude_temp_sensor',
                                           'temp reported by sensor',
                                           ['name', 'device', 'state', 'sensor_type'])
+    PRESSENSORS = prometheus_client.Gauge('finitude_pres_sensor',
+                                          'pressure reported by sensor',
+                                          ['name', 'device', 'state', 'sensor_type'])
     TABLE_NAME_MAP = {
         'AirHandler06': 'airhandler',
         'AirHandler16': 'airhandler',
@@ -128,13 +131,30 @@ class HvacMonitor:
                         elif s['Type'] == 0x4a:
                             stype = 'superheat'
                         elif s['Type'] == 0x4b:
-                            stype = 'discharge'
+                            stype = 'discharge_est'
                         else:
                             stype = str(s['Type'])
                         temp = s['TempTimes16']
                         self.TEMPSENSORS.labels(
                             name=self.name, device=sa, state=state, sensor_type=stype
                         ).set(temp / 16.0)
+                elif name == 'Pressures(0303)':
+                    for s in values['PresSensors']:
+                        sa = frames.ParsedFrame.get_printable_address(frame.source)
+                        if s['State'] == 1:
+                            state = 'present'
+                        elif s['State'] == 4:
+                            state = 'missing'
+                        else:
+                            state = str(s['State'])
+                        if s['Type'] == 0x30:
+                            stype = 'suction'
+                        else:
+                            stype = str(s['Type'])
+                        pressure = s['PressureTimes16']
+                        self.PRESSENSORS.labels(
+                            name=self.name, device=sa, state=state, sensor_type=stype
+                        ).set(pressure / 16.0)
                 else:
                     tablename = self.TABLE_NAME_MAP.get(basename, basename)
                     for (k, v) in values.items():

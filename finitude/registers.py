@@ -31,7 +31,7 @@ class HvacMode(IntEnum):
   HEATPUMP = 4  # heat source: heat pump only
   OFF = 5
 
-  
+
 class Field(Enum):
     UNKNOWN = 0
     UTF8 = 1   # NUL-padded at the end
@@ -202,9 +202,9 @@ REGISTER_INFO = {
     #    LAT (leaving air temperature) is type 20 (0x14)
     #    HPT (heat pump temperature) is type 28 (0x1c)
     #    suction temperature is type 48 (0x30)
-    #    discharge line temperature is type 69 (0x45)
+    #    discharge line temperature is type 69 (0x45) if thermocouple installed
     #    suction superheat is type 74 (0x4a)
-    #    type 75 (0x4b) is about 8-10 degrees less than OAT in all conditions
+    #    discharge line temperature estimated is type 75 (0x4b) if no TC installed
     # According to the Carrier service manual, system operation is not affected
     # by the presence or absence of LAT and HPT -- they are for UI only.
     (0, Field.REPEATING, 'TempSensors'),
@@ -216,8 +216,13 @@ REGISTER_INFO = {
 
   # read-only heat pump 5201 (from thermostat 2001)
   # 6001, 8001: no response
-  '000303': ('UntitledHeatPump', [
-    (4, Field.UNKNOWN),  # 01 30 0b f0 / 01 30 05 d0
+  # 01 30 0b f0 / 01 30 05 d0
+  '000303': ('Pressures', [
+    # type 0x30 is Suction Pressure in PSI
+    (0, Field.REPEATING, 'PresSensors'),
+    (1, Field.UINT8, 'State'),
+    (1, Field.UINT8, 'Type'),
+    (1, Field.UINT16, 'PressureTimes16')
   ]),
 
   # 0304 read-only (thermostat reads from heat pump)
@@ -619,6 +624,10 @@ REGISTER_INFO = {
 
   # 060e read-only heat pump 5201 (from thermostat 2001)
   # 0501050000496c00007162000080730000a61f0000becd036b047904dc05910640036b044c04b00514057801d602d50335042704c501d602d50335042704c5010300004b5f0000868e00009d520000cbc20000fced03e804fb053e0640064003e804fb04fb0640064001ad0367041104c2060e01ad0367041104c2060e
+  # @shbatm First byte is cooling stage
+  '00060e': ('UntitledHeatPump0e', [
+    (1, Field.UINT8, 'CompressorStage')
+  ]),
 
   # read-write unsegmented heat pump 5201 (from thermostat 2001)
   # thermostat controls heat pump using this

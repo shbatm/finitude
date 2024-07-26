@@ -4,4 +4,4 @@ listeners:
   main_floor: 'telnet://192.168.10.11:20108'
   # lowerlevel: /dev/ttyUSB0
 
-# sniffserver_port: 8001
+sniffserver_port: 8001
