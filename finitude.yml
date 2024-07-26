@@ -1,7 +1,7 @@
 port: 8000
 listeners:
   # error: you_must_specify_listener_in_config_or_environment
-  main_floor: 'telnet://192.168.10.11:2626'
+  main_floor: 'telnet://192.168.10.11:20108'
   # lowerlevel: /dev/ttyUSB0
 
 # sniffserver_port: 8001
