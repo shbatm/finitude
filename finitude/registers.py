@@ -202,9 +202,9 @@ REGISTER_INFO = {
     #    LAT (leaving air temperature) is type 20 (0x14)
     #    HPT (heat pump temperature) is type 28 (0x1c)
     #    suction temperature is type 48 (0x30)
-    #    discharge line temperature is type 69 (0x45) if thermocouple installed
+    #    discharge line temperature is type 69 (0x45)
     #    suction superheat is type 74 (0x4a)
-    #    discharge line temperature estimated is type 75 (0x4b) if no TC installed
+    #    discharge line temperature is type 75 (0x4b)
     # According to the Carrier service manual, system operation is not affected
     # by the presence or absence of LAT and HPT -- they are for UI only.
     (0, Field.REPEATING, 'TempSensors'),
@@ -230,11 +230,21 @@ REGISTER_INFO = {
   # 5201: 0118 003c 0117 00e9 0541 0000 0044 0000
   # 6001: no response
   # 8001: NACK 0a
+  '000304': ('Power', [
+    (0, Field.REPEATING, 'PowerSensors'),
+    (1, Field.UINT8, 'State'),
+    (1, Field.UINT8, 'Type'),
+    (1, Field.UINT16, 'Value'),  # 0x18 is unit freq, 0x17 is voltage, 0x41 unknown, 0x44 unknown, 0x19 unknown (indoor unit)
+  ]),
 
   # 0305 writable (by bootstrap controller 1f01)
   # 5201: NACK 0a
   # 6001, 8001: no response
   # during bootstrap, broadcasts WRITE of 000000000000000000000000 as first step
+  # Thermostat control of air handler
+  # 00 00 00 00 01 86 00 00 00 00 00 78 == 1 zone, fan always on MED
+  # 00 00 00 00 00 00 00 00 00 00 00 78 == off
+
 
   # Infinitive: read-only air handler 4001, 4101, 4201
   # 5201: NACK 0a
@@ -242,10 +252,11 @@ REGISTER_INFO = {
   # 8001: no response
   # bootstrap controller 1f01 uses this to probe air handler 4001
   '000306': ('AirHandler06', [
-    (1, Field.UINT8, 'Unknown1'),
+    (1, Field.UINT8, 'Unknown1'), # Always 01?
     (1, Field.UINT16, 'BlowerRPM'),
     (1, Field.UINT8, 'Unknown2'),
-    (1, Field.UINT16, 'Unknown3'),
+    (1, Field.UINT8, 'Unknown3a'),  #00 when off, 02 when on
+    (1, Field.UINT8, 'Unknown3b'),  #00 or 64 (0-100)?
     (1, Field.UINT16, 'Unknown4'),
     (1, Field.UINT8, 'Unknown5'),
     (1, Field.UINT8, 'State'),  # 0x00 when blower off, 0x08 when blower on
@@ -386,7 +397,7 @@ REGISTER_INFO = {
   # 6001: no response
   # 8001: all fields zero with unparsed 0000 0000 0100 0000 00
   '000316': ('AirHandler16', [
-    (1, Field.UINT8, 'State'),  # State & 0x03 != 0 when electric heat is on
+    (1, Field.UINT8, 'State'),  # State & 0x03 != 0 when electric heat is on (00 no_heat, 01 low_heat, 02 med_heat, 03 high_heat)
     (3, Field.UNKNOWN),
     (1, Field.UINT16, 'AirflowCFM'),
     (1, Field.UINT16, 'Unknown0'),
@@ -488,8 +499,20 @@ REGISTER_INFO = {
 
   # read from smart sensor 2101..2801 (by thermostat 2001) during initialization
   '00041e': ('SmartSensor', [
-    # we know nothing about this
+    (1, Field.UINT8, 'UnknownFlag'),  # changed from 00 to A0 when zone went to manual away
+    (4, Field.UNKNOWN),
+    (1, Field.UINT8, 'FanMode'),
+    (1, Field.UINT8, 'CurrentHeatSetpoint'),
+    (1, Field.UINT8, 'CurrentCoolSetpoint'),
+    (1, Field.UINT8, 'UnknownSmartSensor1'),
+    (1, Field.UINT8, 'UnknownSmartSensor2'),
+    (1, Field.UINT8, 'CurrentTemperature'),
+    (1, Field.UINT8, 'CurrentHumidity'),
   ]),
+
+  # 041f Similar to 041e, Write from TStat? A0 00 00 00 00 00 41 4E 00 03 04 FF F0 00 00 00 00 00 00 00
+
+  # 0420 # last bit appears to be a timer
 
   # SSSBCAST has documented all registers in RegInfo04
 
@@ -528,6 +551,9 @@ REGISTER_INFO = {
   #    when sys 1 is running at blower RPM of 171 = 0xab, the value is:
   #                1078 1006 0a17 0330 00ab 00000000 000a 0000 (tstat phase 4)
   # 4001 system 2: 0404 1078 1206 0a37 0518 04d1 00000000 000a 0605
+  # 10 78 10 06 0A 17 //01 86// *02 2D* 00 00 00 00 00 00 00 00 # / Matches command from stat * matches blower rpm
+
+
 
   # 0405 0100 0000 0000 0000 020000 0000 0000 0000 0100000000 (sys 1)
   # 0405 0110 0000 7800 0500 000000 000f 0019 0000 0100000000 (sys 2)
@@ -591,11 +617,17 @@ REGISTER_INFO = {
 
   # 0604 read-only (from thermostat 2001)
   # 10e010e605dc0af00cdf10e0151805dc099c0af00e4210e0
+  '000604': ('CompressorStatus', [
+    (1, Field.UINT16, 'TargetCompressorRPM'),
+    (1, Field.UINT16, 'ActualCompressorRPM'),
+    (20, Field.UNKNOWN),
+  ]),
 
   # 0605 read-write (from thermostat 2001)
   # thermostat controls heat pump using this
   # 40 a0 00 00 01 00 00 in cooling mode
   # 00 00 00 00 00 00 00 as third frame of bootstrap
+  # 3F 80 00 00 01 00 01
 
   # 0606 read-only
 
@@ -603,6 +635,9 @@ REGISTER_INFO = {
 
   # 0608 read-only (from thermostat 2001)
   # 000064000004c1
+  # All zeros when off
+  # 00 00 64 00 00 02 63 when running
+  # 00 00 23 00 00 00 00 on ramp down?
 
   # 0609 read-write
 
@@ -675,6 +710,10 @@ REGISTER_INFO = {
 
   # 0625 (from thermostat 2001)
   # 0f290000
+  '000625': ('UntitledHeatPump25', [
+    (1, Field.UINT8, 'Unknown'),
+    (1, Field.UINT8, 'Unknown2'),
+  ])
 
   # 0626 read-only
 
@@ -981,10 +1020,10 @@ REGISTER_INFO = {
 
   # heat pump info still to determine (from 25VNA8/24VNA9 Service Manual):
   # status:
-  #   line voltage
+  #   line voltage (done)
   #   inverter/VSD output frequency and amplitude (?)
   #   outdoor fan motor speed (?) -- between 400 and 1050 RPM
-  #   suction pressure transducer used to perform low-pressure cutout, etc.
+  #   suction pressure transducer used to perform low-pressure cutout, etc. (done)
   #   utility curtailment relay wired between UTIL connections on the control board
   #     - reports "curtailment YES" in the thermostat UI when relay closed
   #   fault code reported in thermostat UI
@@ -1030,3 +1069,22 @@ REGISTER_INFO = {
   '003e0a': ('LegacyHeatPumpUnknown0a', [
   ]),
 }
+
+
+## NOTES:
+# 0413 on air handler may be airflow or static pressure?
+# 00 00 00 00 00 00 00 00 42 72 62 59
+# 00 00 00 00 00 00 00 00 42 71 89 ED
+# 00 00 00 00 00 00 00 00 42 71 D7 38
+# 00 00 00 00 00 00 00 00 42 71 B8 4D
+# 00 00 00 00 00 00 00 00 42 71 89 ED
+# 00 00 00 00 00 00 00 00 42 70 F8 EA
+# 00 00 00 00 00 00 00 00 42 71 89 ED
+# 00 00 00 00 00 00 00 00 42 74 02 F9
+
+# 2001 thermostat
+# 00 40 0A : Current settings for each comfort mode & manual setting
+# 	- 00 40 [0B-11] : Zone Comfort Settings
+# 00 40 12 : Min/Max Settings
+# # 00 42 03 : (3D) 41 3E 32 32 32 32 32 (51) 4E 4F 5A 5A 5A 5A 5A 00 00 00 00 00 00 00 00
+# 	[ 8 ] Zone Heat Setpoints [ 8 ] Zone Cool Setpoints [ 8 ] Zone Fan Setting?
